@@ -1,6 +1,60 @@
 import { Elysia } from "elysia";
+import { cors } from "@elysiajs/cors";
+import { staticPlugin } from "@elysiajs/static";
+import { swagger } from "@elysiajs/swagger";
+import { jwt } from "@elysiajs/jwt";
+
+import CustomerController from "./controllers/CustomerController";
 
 const app = new Elysia()
+
+  .use(cors())
+  .use(staticPlugin())
+  .use(swagger())
+  .use(jwt({
+    name: "jwt",
+    secret: "secret",
+  }))
+
+  .get("/customers", CustomerController.list)
+  .post("/customers", CustomerController.create)
+  .put("/customers/:id", CustomerController.update)
+  .delete("/customers/:id", CustomerController.delete)
+
+  .post("/login", async ({ jwt, cookie: {auth} }) => {
+    const user = {
+      id: 1,
+      username: "admin",
+      password: "1234",
+      level: "admin",
+      path: "/profile",
+    }
+
+    const token = await jwt.sign(user);
+
+    auth.set({
+      value: token,
+      httpOnly: true,
+      secure: true,
+      maxAge: 60 * 60 * 24 * 30,
+    })
+
+    return { token: token, user: user };
+  })
+
+  .get("/profile", async ({ jwt, cookie: {auth} }) => {
+    const token = auth.value;
+    const user = await jwt.verify(token);
+
+    return { profile: user };
+  })
+
+  .get("/logout", ({ cookie: {auth} }) => {
+    auth.remove();
+
+    return { message: "Logged out" };
+  })
+
   .get("/", () => "Hello Elysia")
   .get("/hello", () => "Hello World")
 
@@ -92,6 +146,30 @@ const app = new Elysia()
     const id = params.id;
 
     return `Delete customer with id ${id}`;
+  })
+
+  // upload file 
+  .post("/upload-file", ({ body }: { body: { file: File } }) => {
+    const file = body.file;
+    console.log(file);
+
+    Bun.write(`./uploads/` + file.name, file);
+
+    return { message: "File uploaded successfully" };
+  })
+
+  // write file
+  .get("/write-file", () => {
+    Bun.write("test.txt", "Hello World");
+
+    return { message: "File written successfully" };
+  })
+
+  // read file
+  .get("/read-file", () => {
+    const file = Bun.file("test.txt");
+
+    return file.text();
   })
   
   // listen
