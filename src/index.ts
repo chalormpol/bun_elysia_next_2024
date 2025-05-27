@@ -5,30 +5,65 @@ import { swagger } from "@elysiajs/swagger";
 import { jwt } from "@elysiajs/jwt";
 
 import CustomerController from "./controllers/CustomerController";
+import { UserController } from "./controllers/UserController";
 
 const app = new Elysia()
 
+  .use(swagger({
+    documentation: {
+      tags: [
+        { name: "User", description: "User related endpoints" },
+        { name: "Customer", description: "Customer related endpoints" },
+      ],
+    },
+  })) 
   .use(cors())
   .use(staticPlugin())
-  .use(swagger())
   .use(jwt({
-    name: "jwt",
-    secret: "secret",
-  }))
+      name: "jwt",
+      secret: "secret",
+    })
+  )
 
-  .get("/customers", CustomerController.list)
-  .post("/customers", CustomerController.create)
-  .put("/customers/:id", CustomerController.update)
-  .delete("/customers/:id", CustomerController.delete)
+  .group("/users", (app) =>
+    app
+      .get("/", UserController.list, { tags: ["User"] })
+      .post("/", UserController.create, { tags: ["User"] })
+      .put("/:id", UserController.update, { tags: ["User"] })
+      .delete("/:id", UserController.remove, { tags: ["User"] })
+      .get("/find-some-field", UserController.findSomeField, { tags: ["User"] })
+      .get("/sort", UserController.sort, { tags: ["User"] })
+      .get("/filter", UserController.filter, { tags: ["User"] })
+      .get("/more-than", UserController.moreThan, { tags: ["User"] })
+      .get("/less-than", UserController.lessThan, { tags: ["User"] })
+      .get("/not-equal", UserController.notEqual, { tags: ["User"] })
+      .get("/in", UserController.in, { tags: ["User"] })
+      .get("/is-null", UserController.isNull, { tags: ["User"] })
+      .get("/is-not-null", UserController.isNotNull, { tags: ["User"] })
+      .get("/between", UserController.between, { tags: ["User"] })
+      .get("/count", UserController.count, { tags: ["User"] })
+      .get("/sum", UserController.sum, { tags: ["User"] })
+      .get("/max", UserController.max, { tags: ["User"] })
+      .get("/min", UserController.min, { tags: ["User"] })
+      .get("/avg", UserController.avg, { tags: ["User"] })
+  )
 
-  .post("/login", async ({ jwt, cookie: {auth} }) => {
+  .group("/customers", (app) =>
+    app
+      .get("/", CustomerController.list, { tags: ["Customer"] })
+      .post("/", CustomerController.create, { tags: ["Customer"] })
+      .put("/:id", CustomerController.update, { tags: ["Customer"] })
+      .delete("/:id", CustomerController.delete, { tags: ["Customer"] })
+  )
+
+  .post("/login", async ({ jwt, cookie: { auth } }) => {
     const user = {
       id: 1,
       username: "admin",
       password: "1234",
       level: "admin",
       path: "/profile",
-    }
+    };
 
     const token = await jwt.sign(user);
 
@@ -37,22 +72,41 @@ const app = new Elysia()
       httpOnly: true,
       secure: true,
       maxAge: 60 * 60 * 24 * 30,
-    })
+    });
 
     return { token: token, user: user };
   })
 
-  .get("/profile", async ({ jwt, cookie: {auth} }) => {
+  .get("/profile", async ({ jwt, cookie: { auth } }) => {
     const token = auth.value;
     const user = await jwt.verify(token);
 
     return { profile: user };
   })
 
-  .get("/logout", ({ cookie: {auth} }) => {
+  .get("/logout", ({ cookie: { auth } }) => {
     auth.remove();
 
     return { message: "Logged out" };
+  })
+
+  .get("/info", async ({ jwt, request }) => {
+    if (request.headers.get("Authorization") === null) {
+      return { message: "Not authorized header" };
+    }
+
+    const token = request.headers.get("Authorization") ?? "";
+
+    if (token === "") {
+      return { message: "No token" };
+    }
+
+    const payload = await jwt.verify(token);
+
+    return {
+      message: "Hello Elysia",
+      payload: payload,
+    };
   })
 
   .get("/", () => "Hello Elysia")
@@ -89,7 +143,9 @@ const app = new Elysia()
       { id: 4, name: "Jill", age: 23 },
     ];
 
-    const customer = customers.find((customer) => customer.id === Number(params.id));
+    const customer = customers.find(
+      (customer) => customer.id === Number(params.id)
+    );
 
     if (!customer) {
       return "Customer not found";
@@ -110,12 +166,15 @@ const app = new Elysia()
   })
 
   // รับค่าจาก body เเบบ 1
-  .post("/customers/create1", ({ body }: { body: { name: string; age: number } }) => {
-    const name = body.name;
-    const age = body.age;
+  .post(
+    "/customers/create1",
+    ({ body }: { body: { name: string; age: number } }) => {
+      const name = body.name;
+      const age = body.age;
 
-    return `Hello ${name} you are ${age} years old`;
-  })
+      return `Hello ${name} you are ${age} years old`;
+    }
+  )
 
   // รับค่าจาก body เเบบ 2
   .post("/customers/create2", ({ body }) => {
@@ -133,13 +192,22 @@ const app = new Elysia()
   })
 
   // put เเบบ 2
-  .put("/customers/updateAll/:id", ({ params, body }: { params: { id: string }, body: { name: string; age: number } }) => {
-    const id = params.id;
-    const name = body.name;
-    const age = body.age;
+  .put(
+    "/customers/updateAll/:id",
+    ({
+      params,
+      body,
+    }: {
+      params: { id: string };
+      body: { name: string; age: number };
+    }) => {
+      const id = params.id;
+      const name = body.name;
+      const age = body.age;
 
-    return `Hello ${name} you are ${age} years old and your id is ${id}`;
-  })
+      return `Hello ${name} you are ${age} years old and your id is ${id}`;
+    }
+  )
 
   // delete
   .delete("/customers/delete/:id", ({ params }) => {
@@ -148,7 +216,7 @@ const app = new Elysia()
     return `Delete customer with id ${id}`;
   })
 
-  // upload file 
+  // upload file
   .post("/upload-file", ({ body }: { body: { file: File } }) => {
     const file = body.file;
     console.log(file);
@@ -171,11 +239,10 @@ const app = new Elysia()
 
     return file.text();
   })
-  
+
   // listen
   .listen(3000);
 
 console.log(
   `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`
 );
- 
