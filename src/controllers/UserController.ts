@@ -24,7 +24,13 @@ export const UserController = {
       return error;
     }
   },
-  update: async ({params, body}: {params: {id: string}, body: {email: string, password: string}}) => {
+  update: async ({
+    params,
+    body,
+  }: {
+    params: { id: string };
+    body: { email: string; password: string };
+  }) => {
     try {
       await prisma.user.update({
         where: {
@@ -187,7 +193,7 @@ export const UserController = {
       const users = await prisma.user.findMany({
         where: {
           credit: {
-            gte: 50, 
+            gte: 50,
             lte: 250,
           },
         },
@@ -201,7 +207,7 @@ export const UserController = {
   count: async () => {
     try {
       const totalRow = await prisma.user.count();
-      return  {totalRow};
+      return { totalRow };
     } catch (error) {
       return error;
     }
@@ -213,7 +219,7 @@ export const UserController = {
           credit: true,
         },
       });
-      return result;
+      return { sum: result._sum.credit };
     } catch (error) {
       return error;
     }
@@ -225,7 +231,7 @@ export const UserController = {
           credit: true,
         },
       });
-      return result;
+      return { max: result._max.credit };
     } catch (error) {
       return error;
     }
@@ -237,7 +243,7 @@ export const UserController = {
           credit: true,
         },
       });
-      return result;
+      return { min: result._min.credit };
     } catch (error) {
       return error;
     }
@@ -249,8 +255,33 @@ export const UserController = {
           credit: true,
         },
       });
-      return result;
+      return { avg: result._avg.credit };
     } catch (error) {
+      return error;
+    }
+  },
+  userAndDepartment: async () => {
+    try {
+      const users = await prisma.user.findMany({
+        include: { department: true },
+      });
+      
+      return { users: users };
+    } catch (error) {
+      return error;
+    }
+  },
+  signIn: async ({ body }: { body: { email: string, password: string }}) => {
+    try {
+      const user = await prisma.user.findFirst({
+        where: {
+          email: body.email,
+          password: body.password,
+        },
+      });
+
+      return { user: user };
+    } catch ( error ) {
       return error;
     }
   }
